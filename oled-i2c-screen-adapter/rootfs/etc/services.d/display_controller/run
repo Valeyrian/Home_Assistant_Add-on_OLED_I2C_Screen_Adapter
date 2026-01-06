@@ -27,7 +27,7 @@ MQTT_TOPIC_BRIGHTNESS=$(jq -r '.topics.brightness' "$CONFIG_FILE")
 MQTT_TOPIC_REFRESH=$(jq -r '.topics.refresh' "$CONFIG_FILE")
 
 # Configuration Tierce
-QR_LINK=$(jq -r '.QrCode_Url' "$CONFIG_FILE")
+QR_LINK=$(jq -r '.qr_link' "$CONFIG_FILE")
 
 # Export des variables d'environnement
 export MQTT_BROKER

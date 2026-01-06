@@ -1,6 +1,5 @@
 import os
 import paho.mqtt.client as mqtt
-import json
 import time
 import threading
 import psutil
@@ -10,48 +9,38 @@ from datetime import datetime
 import netifaces
 import qrcode
 from PIL import Image
+import signal
+import sys
 
-# --- Configuration depuis les options Home Assistant ---
-def load_config():
-    """Charge la configuration depuis les options Home Assistant"""
-    config_file = "/data/options.json"
-    if os.path.exists(config_file):
-        with open(config_file, 'r') as f:
-            config = json.load(f)
-        return config
-    return {}
 
-config = load_config()
 
 # --- Configuration MQTT ---
-MQTT_BROKER = config.get('mqtt_broker', 'core-mqtt')
-MQTT_PORT = config.get('mqtt_port', 1883)
-MQTT_USER = config.get('mqtt_user', 'homeassistant')
-MQTT_PASSWORD = config.get('mqtt_password', '')
-
+MQTT_BROKER = os.getenv('MQTT_BROKER', 'core-mqtt')
+MQTT_PORT = int(os.getenv('MQTT_PORT', 1883))
+MQTT_USER = os.getenv('MQTT_USER', 'homeassistant')
+MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')
 # Topics MQTT
-MQTT_TOPICS = config.get('topics', {
-    'text': 'screen/gme12864/text',
-    'command': 'screen/gme12864/command',
-    'mode': 'screen/gme12864/mode',
-    'brightness': 'screen/gme12864/brightness',
-    'refresh': 'screen/gme12864/refresh'
-})
+MQTT_TOPICS = {
+    'text': os.getenv('MQTT_TOPIC_TEXT', 'screen/gme12864/text'),
+    'command': os.getenv('MQTT_TOPIC_COMMAND', 'screen/gme12864/command'),
+    'mode': os.getenv('MQTT_TOPIC_MODE', 'screen/gme12864/mode'),
+    'brightness': os.getenv('MQTT_TOPIC_BRIGHTNESS', 'screen/gme12864/brightness'),
+    'refresh': os.getenv('MQTT_TOPIC_REFRESH', 'screen/gme12864/refresh')
+}
 
 # Configuration écran
-I2C_ADDRESS = int(config.get('i2c_address', '0x3C'), 16)
-I2C_PORT = config.get('i2c_port', 1)
-DISPLAY_WIDTH = config.get('display_width', 128)
-DISPLAY_HEIGHT = config.get('display_height', 64)
-DISPLAY_TYPE = config.get('display_type', 'ssd1306')
-refresh_interval = config.get('refresh_interval', 5)
-brightness = config.get('default_brightness', 255)
-
+I2C_ADDRESS = int(os.getenv('I2C_ADDRESS', '0x3C'), 16)
+I2C_PORT = int(os.getenv('I2C_PORT', 1))
+DISPLAY_WIDTH = int(os.getenv('DISPLAY_WIDTH', 128))
+DISPLAY_HEIGHT = int(os.getenv('DISPLAY_HEIGHT', 64))
+DISPLAY_TYPE = os.getenv('DISPLAY_TYPE', 'ssd1306')
+refresh_interval = int(os.getenv('REFRESH_INTERVAL', 5))
+brightness = int(os.getenv('DEFAULT_BRIGHTNESS', 255))
 print(f"Configuration MQTT: {MQTT_BROKER}:{MQTT_PORT} User:{MQTT_USER}")
 
 # Configuration tierce
 
-QR_LINK = config.get('qr_link', 'http://homeassistant.local:8123/')
+QR_LINK = os.getenv('QR_LINK', 'http://homeassistant.local:8123/')
 
 # --- Initialisation de l'écran OLED ---
 device = None
@@ -439,6 +428,28 @@ def on_message(client, userdata, msg):
     except Exception as e:
         print(f"Erreur lors du traitement du message MQTT: {e}")
 
+
+def handle_exit(sig, frame):
+    """Gère l'arrêt propre de l'add-on lors d'un signal SIGTERM ou SIGINT"""
+    print(f"Signal d'arrêt reçu ({sig}). Fermeture en cours...")
+    global display_running
+    display_running = False # Arrête la boucle du thread d'affichage
+    
+    if device:
+        try:
+            device.clear()
+            print("Écran OLED effacé.")
+        except Exception as e:
+            print(f"Erreur lors de l'effacement de l'écran : {e}")
+    
+    # Sortie propre du script
+    sys.exit(0)
+
+# Enregistre le gestionnaire pour SIGTERM (arrêt propre Docker) et SIGINT (Ctrl+C)
+signal.signal(signal.SIGTERM, handle_exit)
+signal.signal(signal.SIGINT, handle_exit)
+
+
 # --- Démarrage ---
 def main():
     global display_running
@@ -470,11 +481,9 @@ def main():
     try:
         # Boucle principale MQTT
         client.loop_forever()
-    except KeyboardInterrupt:
-        print("\nArrêt du programme...")
-        display_running = False
-        if device:
-            device.clear()
+    except Exception as e:
+        print(f"Erreur boucle MQTT: {e}")
+        handle_exit(signal.SIGTERM, None)
 
 if __name__ == "__main__":
     main()
