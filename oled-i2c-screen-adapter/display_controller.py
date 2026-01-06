@@ -5,6 +5,7 @@ import signal
 import threading
 import socket
 import subprocess
+import logging
 import psutil
 import netifaces
 import qrcode
@@ -12,25 +13,27 @@ import paho.mqtt.client as mqtt
 from datetime import datetime
 from PIL import Image
 
-# Vérification des imports critiques
+# Critical imports check
 try:
     from luma.core.interface.serial import i2c
     from luma.core.render import canvas
     from luma.oled.device import ssd1306, sh1106
 except ImportError:
-    print("ERREUR CRITIQUE: Bibliothèques luma.oled manquantes.")
+    # Use a fallback basic logging to stderr if logging isn't set yet
+    logging.basicConfig(level=logging.ERROR, format='[%(asctime)s] %(levelname)s: %(message)s', datefmt='%Y-%m-%d %H:%M:%S')
+    logging.critical("Critical error: Missing luma.oled libraries.")
     sys.exit(1)
 
-# --- CONFIGURATION CENTRALISÉE ---
+# --- CENTRALIZED CONFIGURATION ---
 class Config:
-    """Charge la configuration depuis les variables d'environnement"""
+    """Load configuration from environment variables"""
     # MQTT
     MQTT_BROKER = os.getenv('MQTT_BROKER', 'core-mqtt')
     MQTT_PORT = int(os.getenv('MQTT_PORT', 1883))
     MQTT_USER = os.getenv('MQTT_USER', 'homeassistant')
     MQTT_PASSWORD = os.getenv('MQTT_PASSWORD', '')
     
-    # Topics MQTT
+    # MQTT Topics
     MQTT_TOPICS = {
         'text': os.getenv('MQTT_TOPIC_TEXT', 'screen/gme12864/text'),
         'command': os.getenv('MQTT_TOPIC_COMMAND', 'screen/gme12864/command'),
@@ -39,32 +42,43 @@ class Config:
         'refresh': os.getenv('MQTT_TOPIC_REFRESH', 'screen/gme12864/refresh')
     }
 
-    # Écran et I2C
+    # Display and I2C
     I2C_ADDRESS = int(os.getenv('I2C_ADDRESS', '0x3C'), 16)
     I2C_PORT = int(os.getenv('I2C_PORT', 1))
     WIDTH = int(os.getenv('DISPLAY_WIDTH', 128))
     HEIGHT = int(os.getenv('DISPLAY_HEIGHT', 64))
     TYPE = os.getenv('DISPLAY_TYPE', 'ssd1306')
     
-    # Paramètres
+    # Parameters
     REFRESH_INTERVAL = int(os.getenv('REFRESH_INTERVAL', 5))
     DEFAULT_BRIGHTNESS = int(os.getenv('DEFAULT_BRIGHTNESS', 255))
     QR_LINK = os.getenv('QR_LINK', 'http://homeassistant.local:8123/')
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 
 
-# --- MONITORING SYSTÈME ---
+# --- LOGGING SETUP ---
+_level = getattr(logging, Config.LOG_LEVEL, logging.INFO)
+logging.basicConfig(
+    level=_level,
+    format='[%(asctime)s] %(levelname)s: %(message)s',
+    datefmt='%Y-%m-%d %H:%M:%S'
+)
+logger = logging.getLogger(__name__)
+
+
+# --- SYSTEM MONITORING ---
 class SystemMonitor:
-    """Gère la récupération des données système (CPU, RAM, Réseau)"""
+    """Handle system data collection (CPU, RAM, Network)"""
     def __init__(self):
-        # Premier appel pour initialiser le compteur CPU (évite le premier 0.0)
+        # First call to initialize CPU counter (avoid initial 0.0)
         psutil.cpu_percent(interval=None)
 
     def get_system_info(self):
         try:
-            # CPU (Non-bloquant grâce à interval=None)
+            # CPU (Non-blocking thanks to interval=None)
             cpu_percent = psutil.cpu_percent(interval=None)
             
-            # Température (Spécifique RPi)
+            # Temperature (Raspberry Pi specific)
             cpu_temp = None
             try:
                 with open('/sys/class/thermal/thermal_zone0/temp', 'r') as f:
@@ -72,7 +86,7 @@ class SystemMonitor:
             except FileNotFoundError:
                 pass
 
-            # Mémoire & Disque
+            # Memory & Disk
             memory = psutil.virtual_memory()
             disk = psutil.disk_usage('/')
             
@@ -90,13 +104,13 @@ class SystemMonitor:
                 'up_m': minutes
             }
         except Exception as e:
-            print(f"Erreur SystemMonitor: {e}")
+            logger.error(f"SystemMonitor error: {e}")
             return None
 
     def get_network_info(self):
         info = {'ip': 'N/A', 'online': False, 'ping': None, 'ifaces': {}}
         try:
-            # 1. IP Locale via socket (plus fiable que le parsing)
+            # 1. Local IP via socket (more robust than parsing)
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 s.connect(("8.8.8.8", 80))
@@ -105,7 +119,7 @@ class SystemMonitor:
             except:
                 pass
 
-            # 2. Interfaces (filtrage eth/wlan)
+            # 2. Interfaces (filter eth/wlan)
             try:
                 for iface in netifaces.interfaces():
                     if iface.startswith(('eth', 'wlan', 'en', 'wl')):
@@ -115,13 +129,13 @@ class SystemMonitor:
             except:
                 pass
 
-            # 3. Ping Google DNS (Timeout court)
+            # 3. Ping Google DNS (short timeout)
             try:
                 res = subprocess.run(['ping', '-c', '1', '-W', '1', '8.8.8.8'], 
                                    capture_output=True, text=True)
                 info['online'] = (res.returncode == 0)
                 if info['online']:
-                    # Extraction du temps de latence
+                    # Extract latency
                     for line in res.stdout.split('\n'):
                         if 'time=' in line:
                             time_part = line.split('time=')[1]
@@ -132,13 +146,13 @@ class SystemMonitor:
 
             return info
         except Exception as e:
-            print(f"Erreur NetworkMonitor: {e}")
+            logger.error(f"NetworkMonitor error: {e}")
             return None
 
 
-# --- GESTION DE L'ÉCRAN OLED ---
+# --- OLED DISPLAY MANAGEMENT ---
 class OLEDManager:
-    """Wrapper pour la bibliothèque luma.oled"""
+    """Wrapper for luma.oled library"""
     def __init__(self):
         self.device = None
         self._init_device()
@@ -152,24 +166,29 @@ class OLEDManager:
                 self.device = ssd1306(serial_interface, width=Config.WIDTH, height=Config.HEIGHT)
             
             self.device.contrast(Config.DEFAULT_BRIGHTNESS)
-            print(f"OLED initialisé: {Config.TYPE} ({Config.WIDTH}x{Config.HEIGHT}) sur I2C-{Config.I2C_PORT}")
+            logger.info(f"OLED initialized: {Config.TYPE} ({Config.WIDTH}x{Config.HEIGHT}) on I2C-{Config.I2C_PORT}")
         except Exception as e:
-            print(f"ERREUR INIT OLED: {e}. Vérifiez les connexions I2C.")
+            logger.error(f"OLED init error: {e}. Check I2C connections.")
 
     def clear(self):
-        if self.device: self.device.clear()
+        if self.device:
+            self.device.clear()
+            logger.info("OLED cleared")
     
     def set_contrast(self, val):
-        if self.device: self.device.contrast(val)
+        if self.device:
+            self.device.contrast(val)
+            logger.info(f"OLED contrast set to {val}")
         
     def power(self, on=True):
         if self.device:
             self.device.show() if on else self.device.hide()
+            logger.info("OLED power ON" if on else "OLED power OFF")
 
 
-# --- MOTEUR DE RENDU ---
+# --- RENDERING ENGINE ---
 class ScreenRenderer:
-    """Dessine les différents écrans sur le canvas"""
+    """Draw various screens on the canvas"""
     def __init__(self, width, height):
         self.w = width
         self.h = height
@@ -183,11 +202,11 @@ class ScreenRenderer:
             qr.make(fit=True)
             img = qr.make_image(fill_color="white", back_color="black").convert('1')
             
-            # Redimensionnement intelligent
+            # Smart resizing
             scale = min(self.w / img.width, self.h / img.height)
             if scale != 1:
                 new_size = (int(img.width * scale), int(img.height * scale))
-                img = img.resize(new_size, Image.NEAREST) # NEAREST garde les pixels nets
+                img = img.resize(new_size, Image.NEAREST) # NEAREST keeps pixels sharp
             return img
         except Exception:
             return None
@@ -206,7 +225,7 @@ class ScreenRenderer:
     def render_system(self, draw):
         info = self.monitor.get_system_info()
         if not info: return
-        self._header(draw, "SYSTEME")
+        self._header(draw, "SYSTEM")
         
         # CPU & RAM
         draw.text((0, 12), f"CPU: {info['cpu']:.0f}%", fill="white")
@@ -215,7 +234,7 @@ class ScreenRenderer:
         draw.text((0, 22), f"RAM: {info['ram']:.0f}%", fill="white")
         self._bar(draw, 50, 24, 70, 6, info['ram'])
 
-        # Info sup
+        # Additional info
         temp = f"{info['temp']:.0f}C" if info['temp'] else "?"
         draw.text((0, 32), f"T:{temp}  D:{info['disk']:.0f}%", fill="white")
         draw.text((0, 42), f"Up: {info['up_h']}h {info['up_m']}m", fill="white")
@@ -224,7 +243,7 @@ class ScreenRenderer:
     def render_network(self, draw):
         info = self.monitor.get_network_info()
         if not info: return
-        self._header(draw, "RESEAU")
+        self._header(draw, "NETWORK")
         
         y = 12
         draw.text((0, y), f"IP: {info['ip']}", fill="white")
@@ -235,7 +254,7 @@ class ScreenRenderer:
                 draw.text((0, y), f"{iface[:3]}: {addr}", fill="white")
                 y += 10
         
-        stat = "OK" if info['online'] else "KO"
+        stat = "OK" if info['online'] else "DOWN"
         ping = f"{info['ping']:.0f}ms" if info['ping'] else ""
         draw.text((0, 52), f"Net: {stat} {ping}", fill="white")
 
@@ -246,7 +265,7 @@ class ScreenRenderer:
             y = (self.h - self.qr_img.height) // 2
             draw.bitmap((x, y), self.qr_img, fill="white")
         else:
-            draw.text((10, 25), "Erreur QR", fill="white")
+            draw.text((10, 25), "QR Error", fill="white")
 
     def render_text(self, draw, text):
         self._header(draw, "MESSAGE")
@@ -257,27 +276,27 @@ class ScreenRenderer:
             y += 10
 
     def render_logo(self, draw):
-        # Écran de veille / Logo HA
+        # Screensaver / HA Logo
         draw.text((20, 20), "HOME\nASSISTANT", fill="white", align="center")
 
 
-# --- CONTRÔLEUR PRINCIPAL ---
+# --- MAIN CONTROLLER ---
 class DisplayController:
     def __init__(self):
         self.running = True
         self.oled = OLEDManager()
         self.renderer = ScreenRenderer(Config.WIDTH, Config.HEIGHT)
         
-        # État
+        # State
         self.mode = "auto"
-        self.text_buffer = "En attente..."
+        self.text_buffer = "Waiting..."
         self.refresh = Config.REFRESH_INTERVAL
         
-        # Rotation automatique
+        # Automatic rotation
         self.screens = ['system', 'network', 'qr']
         self.screen_idx = 0
         
-        # MQTT (Utilisation explicite de l'API v1 pour compatibilité)
+        # MQTT (Explicit use of API v1 for compatibility)
         self.client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
         self.client.on_connect = self._on_connect
         self.client.on_message = self._on_message
@@ -285,42 +304,53 @@ class DisplayController:
             self.client.username_pw_set(Config.MQTT_USER, Config.MQTT_PASSWORD)
 
     def start(self):
-        """Démarrage du service"""
-        print("Démarrage du Display Controller...")
+        """Start the service"""
+        logger.info("Starting Display Controller...")
+        logger.info(
+            f"Display: type={Config.TYPE} size={Config.WIDTH}x{Config.HEIGHT} I2C port={Config.I2C_PORT} address=0x{Config.I2C_ADDRESS:02X}"
+        )
+        logger.info(
+            f"MQTT: broker={Config.MQTT_BROKER}:{Config.MQTT_PORT} user={Config.MQTT_USER or '(none)'}"
+        )
+        logger.info(f"MQTT topics: {Config.MQTT_TOPICS}")
+        logger.info(
+            f"Initial mode={self.mode}, refresh={self.refresh}s, default_brightness={Config.DEFAULT_BRIGHTNESS}, QR_link={Config.QR_LINK}"
+        )
         
-        # Thread MQTT séparé pour ne pas bloquer si le broker est down
+        # Separate MQTT thread to avoid blocking if broker is down
         threading.Thread(target=self._mqtt_loop, daemon=True).start()
 
-        # Boucle d'affichage principale
+        # Main display loop
         while self.running:
             self._update_display()
             time.sleep(self.refresh)
 
     def stop(self, signum=None, frame=None):
-        """Arrêt propre"""
-        print(f"Arrêt demandé (Signal: {signum})")
+        """Clean shutdown"""
+        logger.info(f"Shutdown requested (Signal: {signum})")
         self.running = False
         self.oled.clear()
         sys.exit(0)
 
     def _mqtt_loop(self):
-        """Gère la connexion et reconnexion MQTT infinie"""
+        """Manage MQTT connection and infinite reconnection attempts"""
         while self.running:
             try:
-                print(f"Connexion MQTT à {Config.MQTT_BROKER}...")
+                logger.info(f"Connecting to MQTT broker {Config.MQTT_BROKER}...")
                 self.client.connect(Config.MQTT_BROKER, Config.MQTT_PORT, 60)
-                self.client.loop_forever() # Bloquant tant que connecté
+                self.client.loop_forever() # Blocking while connected
             except Exception as e:
-                print(f"Erreur MQTT: {e}. Nouvelle tentative dans 10s...")
+                logger.warning(f"MQTT error: {e}. Retrying in 10s...")
                 time.sleep(10)
 
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
-            print("MQTT Connecté !")
+            logger.info("MQTT connected")
             for topic in Config.MQTT_TOPICS.values():
                 client.subscribe(topic)
+            logger.info(f"Subscribed to topics: {list(Config.MQTT_TOPICS.values())}")
         else:
-            print(f"MQTT Refusé code: {rc}")
+            logger.error(f"MQTT connection refused, code: {rc}")
 
     def _on_message(self, client, userdata, msg):
         try:
@@ -331,26 +361,43 @@ class DisplayController:
             if topic == t['text']:
                 self.mode = "manual"
                 self.text_buffer = payload
+                logger.info(f"Received text message ({len(payload)} chars); switching to manual mode")
                 self._update_display() # Rafraîchissement immédiat
             
             elif topic == t['mode']:
                 if payload in ['auto', 'manual', 'system', 'network', 'qr', 'off']:
+                    logger.info(f"Switching display mode to '{payload}'")
                     self.mode = payload
                     self._update_display()
 
             elif topic == t['command']:
-                if payload == 'clear': self.oled.clear()
-                elif payload == 'on': self.oled.power(True)
-                elif payload == 'off': self.oled.power(False)
+                if payload == 'clear':
+                    logger.info("Command received: clear display")
+                    self.oled.clear()
+                elif payload == 'on':
+                    logger.info("Command received: power ON")
+                    self.oled.power(True)
+                elif payload == 'off':
+                    logger.info("Command received: power OFF")
+                    self.oled.power(False)
 
             elif topic == t['brightness']:
-                self.oled.set_contrast(int(payload))
+                try:
+                    val = int(payload)
+                    logger.info(f"Setting brightness/contrast to {val}")
+                    self.oled.set_contrast(val)
+                except ValueError:
+                    logger.warning(f"Invalid brightness payload: '{payload}'")
 
             elif topic == t['refresh']:
-                self.refresh = int(payload)
+                try:
+                    self.refresh = int(payload)
+                    logger.info(f"Setting refresh interval to {self.refresh}s")
+                except ValueError:
+                    logger.warning(f"Invalid refresh payload: '{payload}'")
 
         except Exception as e:
-            print(f"Erreur commande MQTT: {e}")
+            logger.error(f"MQTT command error: {e}")
 
     def _update_display(self):
         if not self.oled.device: return
@@ -375,16 +422,16 @@ class DisplayController:
                 self.oled.clear()
 
 
-# --- POINT D'ENTRÉE ---
+# --- ENTRY POINT ---
 if __name__ == "__main__":
     controller = DisplayController()
     
-    # Capture des signaux d'arrêt (Stop HA, Ctrl+C)
+    # Capture shutdown signals (Stop HA, Ctrl+C)
     signal.signal(signal.SIGTERM, controller.stop)
     signal.signal(signal.SIGINT, controller.stop)
     
     try:
         controller.start()
     except Exception as e:
-        print(f"Crash Fatal: {e}")
+        logger.critical(f"Fatal crash: {e}")
         controller.stop()

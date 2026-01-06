@@ -1,35 +1,36 @@
 #!/bin/sh
 CONFIG_FILE="/data/options.json"
 
-# Configuration MQTT
+# MQTT configuration
 MQTT_BROKER=$(jq -r '.mqtt_broker' "$CONFIG_FILE")
 MQTT_PORT=$(jq -r '.mqtt_port' "$CONFIG_FILE")
 MQTT_USER=$(jq -r '.mqtt_user' "$CONFIG_FILE")
 MQTT_PASSWORD=$(jq -r '.mqtt_password' "$CONFIG_FILE")
 
-# Configuration I2C et écran
+# I2C and display configuration
 I2C_ADDRESS=$(jq -r '.i2c_address' "$CONFIG_FILE")
 I2C_PORT=$(jq -r '.i2c_port' "$CONFIG_FILE")
 DISPLAY_WIDTH=$(jq -r '.display_width' "$CONFIG_FILE")
 DISPLAY_HEIGHT=$(jq -r '.display_height' "$CONFIG_FILE")
 DISPLAY_TYPE=$(jq -r '.display_type' "$CONFIG_FILE")
 
-# Configuration des paramètres d'affichage
+# Display parameters configuration
 REFRESH_INTERVAL=$(jq -r '.refresh_interval' "$CONFIG_FILE")
 AUTO_BRIGHTNESS=$(jq -r '.auto_brightness' "$CONFIG_FILE")
 DEFAULT_BRIGHTNESS=$(jq -r '.default_brightness' "$CONFIG_FILE")
 
-# Configuration des topics MQTT
+# MQTT topics configuration
 MQTT_TOPIC_TEXT=$(jq -r '.topics.text' "$CONFIG_FILE")
 MQTT_TOPIC_COMMAND=$(jq -r '.topics.command' "$CONFIG_FILE")
 MQTT_TOPIC_MODE=$(jq -r '.topics.mode' "$CONFIG_FILE")
 MQTT_TOPIC_BRIGHTNESS=$(jq -r '.topics.brightness' "$CONFIG_FILE")
 MQTT_TOPIC_REFRESH=$(jq -r '.topics.refresh' "$CONFIG_FILE")
 
-# Configuration Tierce
+# Misc configuration
 QR_LINK=$(jq -r '.qr_link' "$CONFIG_FILE")
+LOG_LEVEL=$(jq -r '.log_level' "$CONFIG_FILE")
 
-# Export des variables d'environnement
+# Export environment variables
 export MQTT_BROKER
 export MQTT_PORT
 export MQTT_USER
@@ -48,44 +49,63 @@ export MQTT_TOPIC_MODE
 export MQTT_TOPIC_BRIGHTNESS
 export MQTT_TOPIC_REFRESH
 export QR_LINK
+export LOG_LEVEL
 
-echo "=== Configuration chargée ==="
-echo "MQTT Broker: $MQTT_BROKER:$MQTT_PORT"
-echo "MQTT User: $MQTT_USER"
-echo "Configuration I2C: Port $I2C_PORT, Adresse $I2C_ADDRESS"
-echo "Configuration écran: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} ($DISPLAY_TYPE)"
-echo "Refresh: ${REFRESH_INTERVAL}s, Brightness: $DEFAULT_BRIGHTNESS"
-echo "Topics MQTT:"
-echo "  - Text: $MQTT_TOPIC_TEXT"
-echo "  - Command: $MQTT_TOPIC_COMMAND"
-echo "  - Mode: $MQTT_TOPIC_MODE"
-echo "  - Brightness: $MQTT_TOPIC_BRIGHTNESS"
-echo "  - Refresh: $MQTT_TOPIC_REFRESH"
-echo "=========================="
+# Logging helpers (respect LOG_LEVEL)
+LOG_LEVEL=${LOG_LEVEL:-INFO}
+level_to_num() {
+    case "$1" in
+        DEBUG) echo 10 ;;
+        INFO) echo 20 ;;
+        WARNING) echo 30 ;;
+        ERROR) echo 40 ;;
+        CRITICAL) echo 50 ;;
+        *) echo 20 ;;
+    esac
+}
+log() {
+    lvl="$1"; shift
+    msg="$*"
+    [ "$(level_to_num "$lvl")" -ge "$(level_to_num "$LOG_LEVEL")" ] || return 0
+    printf '[%s] %s: %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$lvl" "$msg"
+}
+log_debug() { log DEBUG "$@"; }
+log_info() { log INFO "$@"; }
+log_warning() { log WARNING "$@"; }
+log_error() { log ERROR "$@"; }
+log_critical() { log CRITICAL "$@"; }
 
-# Vérification des dépendances Python
-echo "Vérification des dépendances Python..."
+log_info "Configuration loaded"
+log_info "MQTT broker: $MQTT_BROKER:$MQTT_PORT"
+log_info "MQTT user: ${MQTT_USER:-(none)}"
+log_info "I2C config: port $I2C_PORT, address $I2C_ADDRESS"
+log_info "Display config: ${DISPLAY_WIDTH}x${DISPLAY_HEIGHT} ($DISPLAY_TYPE)"
+log_info "Refresh: ${REFRESH_INTERVAL}s, brightness: $DEFAULT_BRIGHTNESS"
+log_info "MQTT topics: text=$MQTT_TOPIC_TEXT, command=$MQTT_TOPIC_COMMAND, mode=$MQTT_TOPIC_MODE, brightness=$MQTT_TOPIC_BRIGHTNESS, refresh=$MQTT_TOPIC_REFRESH"
+
+# Check Python dependencies
+log_info "Checking Python dependencies..."
 python3 -c "import os, sys; print(f'Python version: {sys.version}')"
-python3 -c "import json; print('JSON: OK')" 2>/dev/null || echo "ERREUR: Module json manquant"
-python3 -c "import paho.mqtt.client as mqtt; print('MQTT: OK')" 2>/dev/null || echo "ERREUR: Module paho-mqtt manquant"
-python3 -c "import smbus; print('SMBus: OK')" 2>/dev/null || echo "ERREUR: Module smbus manquant"
-python3 -c "import PIL; print('PIL: OK')" 2>/dev/null || echo "ERREUR: Module PIL manquant"
+python3 -c "import json; print('JSON: OK')" 2>/dev/null || log_error "Missing module: json"
+python3 -c "import paho.mqtt.client as mqtt; print('MQTT: OK')" 2>/dev/null || log_error "Missing module: paho-mqtt"
+python3 -c "import smbus; print('SMBus: OK')" 2>/dev/null || log_error "Missing module: smbus"
+python3 -c "import PIL; print('PIL: OK')" 2>/dev/null || log_error "Missing module: PIL"
 
-# Vérification des périphériques I2C
-echo "Vérification des périphériques I2C..."
-ls -la /dev/i2c-* 2>/dev/null || echo "ATTENTION: Périphériques I2C non trouvés"
+# Check I2C devices
+log_info "Checking I2C devices..."
+ls -la /dev/i2c-* 2>/dev/null || log_warning "No I2C devices found"
 
-# Vérification du fichier Python
-echo "Vérification du fichier display_controller.py..."
+# Check Python file
+log_info "Checking display_controller.py..."
 if [ -f "/display_controller.py" ]; then
-    echo "Fichier trouvé: /display_controller.py"
-    echo "Taille: $(stat -c%s /display_controller.py) bytes"
-    # Test de syntaxe Python
-    python3 -m py_compile /display_controller.py 2>/dev/null && echo "Syntaxe Python: OK" || echo "ERREUR: Syntaxe Python invalide"
+    log_info "File found: /display_controller.py"
+    log_info "Size: $(stat -c%s /display_controller.py) bytes"
+    # Python syntax test
+    python3 -m py_compile /display_controller.py 2>/dev/null && log_info "Python syntax: OK" || log_error "Invalid Python syntax"
 else
-    echo "ERREUR: Fichier /display_controller.py non trouvé"
+    log_error "/display_controller.py not found"
     exit 1
 fi
 
-echo "Lancement du controleur OLED..."
-exec python3 /display_controller.py
+log_info "Starting OLED controller..."
+exec python3 -u /display_controller.py
