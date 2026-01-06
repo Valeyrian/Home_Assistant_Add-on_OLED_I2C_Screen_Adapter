@@ -1,6 +1,6 @@
 {
   "name": "Add-on OLED I2C Screen Adapter",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "init": false,
   "slug": "oled-i2c-screen-adapter",
   "description": "This Home Assistant add-on enables the use of an OLED screen via I2C on a Raspberry Pi running Home Assistant Operating System (HA OS). HA OS typically restricts direct access to I2C due to system permissions, but this add-on bypasses those limitations by leveraging the Supervisor.",
