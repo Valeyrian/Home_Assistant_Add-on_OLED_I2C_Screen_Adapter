@@ -9,10 +9,27 @@
     ```
     (This add-on does **not** enable I2C automatically.)
 
-2. Access your Home Assistant instance via SSH or SFTP to upload the custom add-on.
+2. (Optionally) Access your Home Assistant instance via SSH or SFTP to customise the add-on.
 
 
-## Steps
+## Installation Methods
+
+### Method 1: Easy Installation via Home Assistant UI (Recommended)
+
+1. In Home Assistant, navigate to **Settings > Add-ons > Add-on Store**.
+2. Click the **three dots menu** (⋮) in the top-right corner.
+3. Select **Repositories**.
+4. Add this repository URL:
+   ```
+   https://github.com/Valeyrian/Home_Assistant_Add-on_OLED_I2C_Screen_Adapter
+   ```
+5. Click **Add** and wait for the repository to be loaded.
+6. Find **OLED I2C Screen Adapter** in the add-on list and click on it.
+7. Click **Install** and wait for installation to complete.
+8. Configure the add-on via the **Configuration** tab.
+9. Start the add-on.
+
+### Method 2: Manual Installation
 
 1. Clone or download this repository.
 2. Copy the repository folder into a **subfolder** inside the addons directory of your Home Assistant instance. This subfolder must have the exact same name as the `slug` defined in `config.json`, using **only** lowercase letters, numbers, and hyphens (no capital letters or special characters).
@@ -75,11 +92,11 @@ The add-on supports multiple display modes:
 | `manual` | Static custom message sent via MQTT                                      |
 | `system` | Shows CPU usage, memory, uptime                                          |
 | `network`| Displays IP and network status                                           |
-| `sensors`| Shows sensor data (must be implemented manually in `display_controller.py`) |
+
 
 ##  Customization
 
-You can customize the display logic by editing the `display_controller.py` script. This allows you to add new display modes, change MQTT topic handling, or build menu systems. Advanced users are encouraged to enhance this file according to their needs.
+You can customize the display logic by editing the `display_controller.py` script. This allows you to add new display modes, change MQTT topic handling, or build menu systems. 
 
 > While the `config.yaml` file can also be edited manually Most configurations can be handled through the Home Assistant UI.
 

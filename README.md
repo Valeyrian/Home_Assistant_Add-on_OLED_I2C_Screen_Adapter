@@ -8,7 +8,7 @@ HA OS typically restricts direct access to I2C due to system permissions, but th
 ## Features
 
 - **I2C Screen Support**: Compatible with OLED screens using GME12864, SSD1306, or SH1106 controllers.
-- **MQTT Integration**: Receives data via MQTT topics to display system info like CPU temperature, memory usage, and network status.
+- **MQTT Integration**: Receives data via MQTT topics to display info.
 - **Customizable Display Logic**: The `display_controller.py` script can be modified to define new display modes, MQTT topics, or behaviors.
 - **Supervisor Execution**: Ensures compatibility with HA OS by executing with Supervisor permissions.
 - **UI-Based Configuration**: Add-on options are configurable through the Home Assistant interface 
