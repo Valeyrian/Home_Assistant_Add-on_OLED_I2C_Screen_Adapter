@@ -24,3 +24,6 @@ COPY display_controller.py /display_controller.py
 
 # Copier les fichiers de configuration du service
 COPY rootfs/ /
+
+#here we give execution rights to the run file
+RUN chmod +x /etc/services.d/display_controller/run
