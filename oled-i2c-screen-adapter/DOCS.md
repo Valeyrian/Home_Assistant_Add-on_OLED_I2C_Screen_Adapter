@@ -63,6 +63,7 @@ All options are accessible through the Home Assistant UI:
 | `display_type`       | Controller type (`ssd1306` or `sh1106`)          | `ssd1306`                  |
 | `refresh_interval`   | Refresh time in seconds                          | `5`                        |
 | `default_brightness` | Manual brightness level (0–255)                  | `255`                      |
+| `default_mode`       | The default Mode at the start-up (auto/system/network/qr/custom/off)          | `auto`                 |
 | `font_size`          | Size of the font (8-20)                          | `10`                       |
 | `show_header`        | Eneabling the header or not for small screen     | `true`                     |
 | `qr_link`            | URL shown as QR code                             | `http://homeassistant.local:8123/` |
