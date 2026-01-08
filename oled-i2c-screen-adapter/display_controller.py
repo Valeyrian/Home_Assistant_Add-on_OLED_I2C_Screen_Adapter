@@ -35,7 +35,6 @@ class Config:
     # MQTT Topics definition
     MQTT_TOPICS = {
         'text': os.getenv('MQTT_TOPIC_TEXT', 'screen/text'),
-        'command': os.getenv('MQTT_TOPIC_COMMAND', 'screen/command'),
         'mode': os.getenv('MQTT_TOPIC_MODE', 'screen/mode'),
         'brightness': os.getenv('MQTT_TOPIC_BRIGHTNESS', 'screen/brightness'),
         'status': os.getenv('MQTT_TOPIC_STATUS', 'screen/status'),

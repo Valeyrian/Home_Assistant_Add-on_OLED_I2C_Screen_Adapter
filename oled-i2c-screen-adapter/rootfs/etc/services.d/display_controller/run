@@ -16,7 +16,6 @@ DISPLAY_TYPE=$(jq -r '.display_type' "$CONFIG_FILE")
 
 # Display parameters configuration
 REFRESH_INTERVAL=$(jq -r '.refresh_interval' "$CONFIG_FILE")
-AUTO_BRIGHTNESS=$(jq -r '.auto_brightness' "$CONFIG_FILE")
 DEFAULT_BRIGHTNESS=$(jq -r '.default_brightness' "$CONFIG_FILE")
 FONT_SIZE=$(jq -r '.font_size' "$CONFIG_FILE")
 SHOW_HEADER=$(jq -r '.show_header' "$CONFIG_FILE")
@@ -24,7 +23,6 @@ CUSTOM_LINES=$(jq -c '.custom_lines' "$CONFIG_FILE")
 
 # MQTT topics configuration
 MQTT_TOPIC_TEXT=$(jq -r '.topics.text' "$CONFIG_FILE")
-MQTT_TOPIC_COMMAND=$(jq -r '.topics.command' "$CONFIG_FILE")
 MQTT_TOPIC_MODE=$(jq -r '.topics.mode' "$CONFIG_FILE")
 MQTT_TOPIC_BRIGHTNESS=$(jq -r '.topics.brightness' "$CONFIG_FILE")
 MQTT_TOPIC_REFRESH=$(jq -r '.topics.refresh' "$CONFIG_FILE")
@@ -45,7 +43,6 @@ export DISPLAY_WIDTH
 export DISPLAY_HEIGHT
 export DISPLAY_TYPE
 export REFRESH_INTERVAL
-export AUTO_BRIGHTNESS
 export DEFAULT_BRIGHTNESS
 export MQTT_TOPIC_TEXT
 export MQTT_TOPIC_COMMAND

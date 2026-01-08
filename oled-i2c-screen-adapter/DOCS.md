@@ -62,22 +62,26 @@ All options are accessible through the Home Assistant UI:
 | `display_height`     | Height in pixels                                 | `64`                       |
 | `display_type`       | Controller type (`ssd1306` or `sh1106`)          | `ssd1306`                  |
 | `refresh_interval`   | Refresh time in seconds                          | `5`                        |
-| `auto_brightness`    | Enable automatic brightness                      | `true`                     |
 | `default_brightness` | Manual brightness level (0–255)                  | `255`                      |
+| `font_size`          | Size of the font (8-20)                          | `10`                       |
+| `show_header`        | Eneabling the header or not for small screen     | `true`                     |
 | `qr_link`            | URL shown as QR code                             | `http://homeassistant.local:8123/` |
-
+| `log_level`          | The level of the logs (debug/info/warning/error/critical)| `info`             |
+| `topics`             | All the mqtt topics                              | See the table MQTT Topics  |
+| `custom_lines`       | Your customisation for the custom pannel with mqtt | see at Custom Lines section              |
 
 ## MQTT Topics
 
 The screen listens for MQTT messages on the following topics:
 
-| Topic                         | Description                           |
+| Topic                        | Description                           |
 |------------------------------|----------------------------------------|
 | `screen/gme12864/text`       | Send text to display                   |
-| `screen/gme12864/command`    | Send commands (`clear`, `on`, `off`)   |
 | `screen/gme12864/mode`       | Change mode (`auto`, `manual`, etc.)   |
 | `screen/gme12864/brightness` | Adjust brightness                      |
 | `screen/gme12864/refresh`    | Change refresh interval                |
+| `screen/gme12864/status`     | The addon publish his own status       |
+
 
 You can freely extend or change these topics by editing the `display_controller.py` file.
 
@@ -86,19 +90,37 @@ You can freely extend or change these topics by editing the `display_controller.
 
 The add-on supports multiple display modes:
 
-| Mode     | Description                                                              |
-|----------|--------------------------------------------------------------------------|
-| `auto`   | Automatically rotates through all screens                                |
-| `manual` | Static custom message sent via MQTT                                      |
-| `system` | Shows CPU usage, memory, uptime                                          |
-| `network`| Displays IP and network status                                           |
+|Mode         | Description                                                            |
+|-------------|------------------------------------------------------------------------|
+|auto         |Automatically cycles through system, network, custom, and qr screens.   |
+|system       |Shows CPU load, RAM usage, Temperature, Disk usage, and Uptime.         |
+|network      |Displays IP address, Interface list, and Ping status.                   |
+|qr           |Displays a QR code generating from the qr_link config.                  |
+|custom       |Displays lines of data subscribed from MQTT (see below).                |
+|text         |Displays a static message sent to the text topic. Supports scrolling.   |
+|off          |Turns the screen display off (dark).                                    |
 
 
 ##  Customization
 
-You can customize the display logic by editing the `display_controller.py` script. This allows you to add new display modes, change MQTT topic handling, or build menu systems. 
+Custom Lines (JSON Configuration)
+To display data from other sensors (like temperature or humidity) on the Custom screen, configure the custom_lines option with a JSON list.
 
-> While the `config.yaml` file can also be edited manually Most configurations can be handled through the Home Assistant UI.
+**Example Configuration:**
+
+```json
+
+[
+  { "topic": "home/livingroom/temp", "format": "Temp: {} C" },
+  { "topic": "home/kitchen/humidity", "format": "Hum: {} %" },
+  { "topic": "solar/power", "format": "Solar: {} W" }
+]
+```
+**topic**: The MQTT topic to listen to.
+
+**format**: A string formatter. `{}` will be replaced by the payload value.
+
+*Note: If the text is too long, the screen will automatically scroll it horizontally.*
 
 #  Warnings & Important Notes
 
@@ -135,16 +157,23 @@ You can customize the display logic by editing the `display_controller.py` scrip
 
 ##  MQTT Examples
 
-### Send text to screen
-```json
-Topic: screen/gme12864/text
-Payload: "Hello from Home Assistant!"
-```
+**Send a Text Message**
+To display a message instantly (switching the screen to text mode implicitly):
 
-### Change display mode
-```json
-Topic: screen/gme12864/mode
-Payload: "auto"
+```
+mosquitto_pub -h homeassistant.local -t "screen/gme12864/text" -m "Hello World\nThis is a test."
+```
+**Change Brightness**
+Set brightness to 50% (approx 128):
+
+```
+mosquitto_pub -h homeassistant.local -t "screen/gme12864/brightness" -m "128"
+```
+**Force a Specific Mode**
+Switch specifically to the Network info screen:
+
+```
+mosquitto_pub -h homeassistant.local -t "screen/gme12864/mode" -m "network"
 ```
 ---
 
