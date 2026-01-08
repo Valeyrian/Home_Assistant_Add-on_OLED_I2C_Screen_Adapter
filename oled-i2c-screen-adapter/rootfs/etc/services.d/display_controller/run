@@ -20,6 +20,7 @@ DEFAULT_BRIGHTNESS=$(jq -r '.default_brightness' "$CONFIG_FILE")
 FONT_SIZE=$(jq -r '.font_size' "$CONFIG_FILE")
 SHOW_HEADER=$(jq -r '.show_header' "$CONFIG_FILE")
 CUSTOM_LINES=$(jq -c '.custom_lines' "$CONFIG_FILE")
+DEFAULT_MODE=$(jq -r '.default_mode' "$CONFIG_FILE")
 
 # MQTT topics configuration
 MQTT_TOPIC_TEXT=$(jq -r '.topics.text' "$CONFIG_FILE")
@@ -55,6 +56,7 @@ export FONT_SIZE
 export SHOW_HEADER
 export CUSTOM_LINES
 export MQTT_TOPIC_STATUS
+export DEFAULT_MODE
 
 
 

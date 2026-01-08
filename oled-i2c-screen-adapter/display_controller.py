@@ -61,6 +61,7 @@ class Config:
     SYSTEM_CACHE_INTERVAL = float(os.getenv('SYSTEM_CACHE_INTERVAL', 2.0))
     NETWORK_CACHE_INTERVAL = float(os.getenv('NETWORK_CACHE_INTERVAL', 3.0))
     DEFAULT_BRIGHTNESS = int(os.getenv('DEFAULT_BRIGHTNESS', 255))
+    DEFAULT_MODE = os.getenv('DEFAULT_MODE', 'auto')
     QR_LINK = os.getenv('QR_LINK', 'http://homeassistant.local:8123/')
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO').upper()
 
@@ -381,8 +382,8 @@ class DisplayController:
             sys.exit(1)
             
         self.renderer = ScreenRenderer(Config.WIDTH, Config.HEIGHT)
-        self.mode = "auto"
-        self.previous_mode = "auto"
+        self.mode = Config.DEFAULT_MODE
+        self.previous_mode = self.mode
         self.screens = ['system', 'network', 'custom', 'qr']
         self.screen_idx = 0
         self.custom_data = {}

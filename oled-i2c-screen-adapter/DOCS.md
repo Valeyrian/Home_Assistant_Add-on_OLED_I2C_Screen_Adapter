@@ -92,13 +92,13 @@ The add-on supports multiple display modes:
 
 |Mode         | Description                                                            |
 |-------------|------------------------------------------------------------------------|
-|auto         |Automatically cycles through system, network, custom, and qr screens.   |
-|system       |Shows CPU load, RAM usage, Temperature, Disk usage, and Uptime.         |
-|network      |Displays IP address, Interface list, and Ping status.                   |
-|qr           |Displays a QR code generating from the qr_link config.                  |
-|custom       |Displays lines of data subscribed from MQTT (see below).                |
-|text         |Displays a static message sent to the text topic. Supports scrolling.   |
-|off          |Turns the screen display off (dark).                                    |
+|`auto`       |Automatically cycles through system, network, custom, and qr screens.   |
+|`system`     |Shows CPU load, RAM usage, Temperature, Disk usage, and Uptime.         |
+|`network`    |Displays IP address, Interface list, and Ping status.                   |
+|`qr`         |Displays a QR code generating from the qr_link config.                  |
+|`custom`     |Displays lines of data subscribed from MQTT (see below).                |
+|`text`       |Displays a static message sent to the text topic. Supports scrolling.   |
+|`off`        |Turns the screen display off (dark).                                    |
 
 
 ##  Customization
