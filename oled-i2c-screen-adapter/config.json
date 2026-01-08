@@ -1,6 +1,6 @@
 {
   "name": "Add-on OLED I2C Screen Adapter",
-  "version": "0.2.12",
+  "version": "0.3.0",
   "init": false,
   "slug": "oled-i2c-screen-adapter",
   "description": "This Home Assistant add-on enables the use of an OLED screen via I2C on a Raspberry Pi running Home Assistant Operating System (HA OS). HA OS typically restricts direct access to I2C due to system permissions, but this add-on bypasses those limitations by leveraging the Supervisor.",
@@ -30,6 +30,8 @@
     "refresh_interval": 5,
     "auto_brightness": true,
     "default_brightness": 255,
+    "font_size": 10,
+    "show_header": true,
     "qr_link": "http://homeassistant.local:8123/",
     "log_level": "info",
     "topics": {
@@ -37,8 +39,13 @@
       "command": "screen/gme12864/command",
       "mode": "screen/gme12864/mode",
       "brightness": "screen/gme12864/brightness",
-      "refresh": "screen/gme12864/refresh"
-    }
+      "refresh": "screen/gme12864/refresh",
+      status: "screen/gme12864/status"
+    },
+    "custom_lines": [
+      { "format": "Temp: {} C", "topic": "home/sensor/temp" },
+      { "format": "Hum: {} %", "topic": "home/sensor/hum" }
+    ]
 
 
     
@@ -56,6 +63,8 @@
     "refresh_interval": "int(1,60)",
     "auto_brightness": "bool",
     "default_brightness": "int(0,255)",
+    "font_size": "int(8,20)",
+    "show_header": "bool",
     "qr_link": "str",
     "log_level": "list(debug|info|warning|error|critical)",
     "topics": {
@@ -63,9 +72,14 @@
       "command": "str", 
       "mode": "str",
       "brightness": "str",
-      "refresh": "str"
-    }
-    
+      "refresh": "str",
+      "status": "str"
+    },
+    "custom_lines": [{
+      "format": "str",
+      "topic": "str"
+    }]
+     
   },
   "ports": {},
   "hassio_api": true,

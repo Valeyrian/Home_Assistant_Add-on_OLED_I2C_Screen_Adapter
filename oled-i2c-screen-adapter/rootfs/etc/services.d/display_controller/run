@@ -18,6 +18,9 @@ DISPLAY_TYPE=$(jq -r '.display_type' "$CONFIG_FILE")
 REFRESH_INTERVAL=$(jq -r '.refresh_interval' "$CONFIG_FILE")
 AUTO_BRIGHTNESS=$(jq -r '.auto_brightness' "$CONFIG_FILE")
 DEFAULT_BRIGHTNESS=$(jq -r '.default_brightness' "$CONFIG_FILE")
+FONT_SIZE=$(jq -r '.font_size' "$CONFIG_FILE")
+SHOW_HEADER=$(jq -r '.show_header' "$CONFIG_FILE")
+CUSTOM_LINES=$(jq -c '.custom_lines' "$CONFIG_FILE")
 
 # MQTT topics configuration
 MQTT_TOPIC_TEXT=$(jq -r '.topics.text' "$CONFIG_FILE")
@@ -25,6 +28,7 @@ MQTT_TOPIC_COMMAND=$(jq -r '.topics.command' "$CONFIG_FILE")
 MQTT_TOPIC_MODE=$(jq -r '.topics.mode' "$CONFIG_FILE")
 MQTT_TOPIC_BRIGHTNESS=$(jq -r '.topics.brightness' "$CONFIG_FILE")
 MQTT_TOPIC_REFRESH=$(jq -r '.topics.refresh' "$CONFIG_FILE")
+MQTT_TOPIC_STATUS=$(jq -r '.topics.status' "$CONFIG_FILE")
 
 # Misc configuration
 QR_LINK=$(jq -r '.qr_link' "$CONFIG_FILE")
@@ -50,6 +54,12 @@ export MQTT_TOPIC_BRIGHTNESS
 export MQTT_TOPIC_REFRESH
 export QR_LINK
 export LOG_LEVEL
+export FONT_SIZE
+export SHOW_HEADER
+export CUSTOM_LINES
+export MQTT_TOPIC_STATUS
+
+
 
 # Logging helpers (respect LOG_LEVEL)
 LOG_LEVEL=${LOG_LEVEL:-INFO}
