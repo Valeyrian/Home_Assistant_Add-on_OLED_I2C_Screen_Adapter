@@ -13,7 +13,8 @@ RUN apk add --no-cache \
     linux-headers \
     libjpeg \
     bash \
-    jq
+    jq \
+    ttf-dejavu
 
 # Installing Python dependencies
 COPY requirements.txt /requirements.txt
